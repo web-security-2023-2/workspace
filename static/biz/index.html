@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>우편물 조회 (사업자용)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/assets/default.css">
+</head>
+<body>
+  <div class="wrapper">
+    <nav>
+      <p><a href="/">일반</a></p>
+    </nav>
+    <form id="search" action="/biz/search" method="get">
+      <h1>우편물 조회 (사업자용)</h1>
+      <p>
+        <label>운송장 번호:<br>
+        <input type="search" name="id" required=""></label>
+        <button type="submit">조회</button>
+      </p>
+    </form>
+  </div>
+</body>
+</html>
