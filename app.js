@@ -2,24 +2,20 @@ import { createReadStream, stat } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
 
-const NOT_FOUND_PATH   = '/404.html';
-const NOT_ALLOWED_PATH = '/405.html';
-const SERVER_ERROR     = '/500.html';
-
+const STATIC_DIR = join(process.cwd(), 'static');
+const STATUS_DIR = join(process.cwd(), 'status');
 const STATIC_HEADERS = {
   'Cache-Control': 'no-cache',
 };
 
-const host = 'localhost';
-const port = 8080;
-const staticDir = join(process.cwd(), 'static');
-const origin = `http://${host}:${port}`;
-const notFoundFile = join(staticDir, NOT_FOUND_PATH);
-const notAllowedFile = join(staticDir, NOT_ALLOWED_PATH);
-const serverErrorFile = join(staticDir, SERVER_ERROR);
+const port = parseInt(process.argv[2]);
+const origin = `http://localhost:${port}`;
+if (isNaN(port)) {
+  console.error('Invalid port number.');
+  process.exit(1);
+}
 
 const server = createServer((req, res) => {
-  
   let body = [];
   req.on('error', (err) => {
     res.end("error while reading body: " + err)
@@ -35,7 +31,7 @@ const server = createServer((req, res) => {
       "Headers": req.headers,
       "Length": body.length,
       "Body": body,
-    }) + "\n");
+    }, undefined, 2) + "\n");
   });
   return;
 
@@ -47,12 +43,12 @@ const server = createServer((req, res) => {
     search(req, res);
     break;
   default:
-    serveStaticFile(req, res, path);
+    serveStatic(req, res, path);
     break;
   }
 });
 
-server.listen(port, host, () => {
+server.listen(port, () => {
   console.log(`Serving on ${origin}...`);
 });
 
@@ -62,93 +58,61 @@ function search(req, res) {
   res.end();
 }
 
-function serveStaticFile(req, res, path) {
+function serveStatic(req, res, path) {
   switch (req.method) {
   case 'GET':
   case 'HEAD':
     const file = join(
-      staticDir,
+      STATIC_DIR,
       path.endsWith('/') ?
       decodeURIComponent(path) + 'index.html' :
       decodeURIComponent(path)
     );
     stat(file, (err, stats) => {
       if (err && err.code === 'ENOENT') {
-        handleNotFound(req, res, path);
+        handleErrorStatus(req, res, 404);
       } else if (err) {
         handleFileError(res, err);
       } else if (stats.isDirectory()) {
         handleDirectory(req, res, path, file);
-      } else if (path === NOT_FOUND_PATH) {
-        handleFile(req, res, 404, stats, file);
       } else {
         handleFile(req, res, 200, stats, file);
       }
     });
     break;
   default:
-    handleNotAllowed(req, res);
+    handleErrorStatus(req, res, 405);
     break;
   }
 }
 
-function handleNotAllowed(req, res) {
-  // If the '/405.html' file exists, return it as a fallback page.
-  stat(notAllowedFile, (err, stats) => {
+function handleErrorStatus(req, res, status) {
+  // If the fallback page exists, return it.
+  const file = join(STATUS_DIR, `${status}.html`);
+  stat(file, (err, stats) => {
     if (err) {
-      res.writeHead(405);
+      res.writeHead(status);
       res.end();
     } else {
-      handleFile(req, res, 405, stats, notAllowedFile);
-    }
-  });
-}
-
-function handleNotFound(req, res, path) {
-  // If it was already detected that the '/404.html' does not exist,
-  // do not try to find the fallback.
-  if (path === NOT_FOUND_PATH) {
-    res.writeHead(404);
-    res.end();
-    return;
-  }
-
-  // If the '/404.html' file exists, return it as a fallback page.
-  stat(notFoundFile, (err, stats) => {
-    if (err) {
-      res.writeHead(404);
-      res.end();
-    } else {
-      handleFile(req, res, 404, stats, notFoundFile);
+      handleFile(req, res, status, stats, file);
     }
   });
 }
 
 function handleFileError(res, err) {
   console.error(err);
-
-  // If the '/500.html' file exists, return it as a fallback page.
-  stat(serverErrorFile, (err, stats) => {
-    if (err) {
-      res.writeHead(500);
-      res.end();
-    } else {
-      handleFile(req, res, 500, stats, serverErrorFile);
-    }
-  });
+  handleErrorStatus(req, res, 500);
 }
 
 function handleDirectory(req, res, path, file) {
   file = join(file, 'index.html');
   stat(file, (err) => {
     if (err && err.code === 'ENOENT') {
-      handleNotFound(req, res, path);
+      handleErrorStatus(req, res, 404);
     } else if (err) {
       handleFileError(res, err);
     } else {
-      res.writeHead(301, {
-        'Location': path + '/',
-      });
+      res.writeHead(301, { 'Location': path + '/' });
       res.end();
     }
   });
