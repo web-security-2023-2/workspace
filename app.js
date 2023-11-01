@@ -1,10 +1,16 @@
-import { createReadStream, stat } from 'node:fs';
+import { createReadStream, readFile, stat } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
+import { Eta } from 'eta';
 
+const DB_FILE = join(process.cwd(), 'database.json');
 const STATIC_DIR = join(process.cwd(), 'static');
 const STATUS_DIR = join(process.cwd(), 'status');
-const STATIC_HEADERS = {
+
+// 본래는 헤더 설정파일을 따로 두고 파싱해서 URL별, 확장자별로 설정하거나,
+// 최소한 파일 확장자별로 하드코딩해서라도 캐싱 차이를 두는 게 맞지만,
+// 여기서 웹앱의 완성도는 안중요하므로 무조건 사용 전에 캐시 검증하게만 둔다.
+const DEFAULT_HEADERS = {
   'Cache-Control': 'no-cache',
 };
 
@@ -36,11 +42,12 @@ const server = createServer((req, res) => {
   return;
 
   const { url } = req;
-  const path = new URL(url, origin).pathname;
+  const { pathname: path, searchParams } = new URL(url, origin);
   switch (path) {
-  case '/search':
   case '/biz/search':
-    search(req, res);
+    search(req, res, searchParams, true);
+  case '/search':
+    search(req, res, searchParams);
     break;
   default:
     serveStatic(req, res, path);
@@ -52,10 +59,29 @@ server.listen(port, () => {
   console.log(`Serving on ${origin}...`);
 });
 
-function search(req, res) {
-  // Router: TODO!!!!
-  res.writeHead(200);
-  res.end();
+function search(req, res, searchParams, isAuthorized) {
+  const id = searchParams.get('id');
+  if (!id) {
+    handleErrorStatus(req, res, 400);
+    return;
+  }
+
+  readFile(DB_FILE, 'utf8', (err, db) => {
+    try {
+      if (err) throw new Error(err);
+
+      const data = JSON.parse(db)[id];
+      if (!data) {
+        handleErrorStatus(req, res, 404);
+      }
+
+      // TODO: Render template part
+      res.writeHead(200);
+      res.end();
+    } catch (err) {
+      handleErrorStatus(req, res, 500);
+    }
+  });
 }
 
 function serveStatic(req, res, path) {
@@ -123,13 +149,13 @@ function handleFile(req, res, status, stats, file) {
   const modified = stats.mtime.toUTCString();
   const since = req.headers['if-modified-since'];
   if (since && (new Date(modified) <= new Date(since))) {
-    res.writeHead(304, STATIC_HEADERS);
+    res.writeHead(304, DEFAULT_HEADERS);
     res.end();
     return;
   }
 
   res.writeHead(status, {
-    ...STATIC_HEADERS,
+    ...DEFAULT_HEADERS,
     'Content-Length': stats.size,
     'Content-Type': guessType(file),
     'Last-Modified': modified,
