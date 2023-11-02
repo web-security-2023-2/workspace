@@ -98,7 +98,7 @@ function handleSearch(req, res, path, params) {
     }
 
     // **중요**
-    // /biz/ 디렉토리로 들어온 요청은 프록시가 이미 권한을 검증했다고 가정,
+    // '/biz/' 디렉토리로 들어온 요청은 프록시가 이미 권한을 검증했다고 가정,
     // 어떤 검증 절차도 없이 무조건적으로 인증된 것으로 간주한다.
     // (보안 결함)
     const isAuthorized = path.startsWith('/biz/');
@@ -115,52 +115,38 @@ function handleSearch(req, res, path, params) {
     }
 
     const length = Buffer.byteLength(body);
-    const headers = {
-      'Content-Length': length,
-      'Content-Type': 'text/html; charset=utf-8',
-    };
 
-    // 설계상 인증된 것으로 간주된 경우, 본문에는 개인정보가 포함되어 있다.
+    // 설계상 인증된 (것으로 간주된) 경우, 본문에는 개인정보가 포함되어 있다.
     // 이런 경우 보안 (모범) 관행은 브라우저의 캐시를 완전히 금지하도록 한다.
-    if (isAuthorized) {
-      res.writeHead(200, {
-        'Cache-Control': 'no-store',
-        ...headers,
-      });
+    res.setHeader('Cache-Control', isAuthorized ? 'no-store' : 'no-cache');
 
-      // 요청 메소드가 HEAD인 경우 응답에 본문을 포함해서는 안 된다.
-      // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/HEAD
-      if (req.method === 'HEAD') {
+    // 인증되었을 경우, 어차피 캐시를 금하므로 Etag 생성/검증/세팅 생략.
+    if (!isAuthorized) {
+      // 가능하면 사용자의 브라우저 캐시를 사용하게 한다.
+      // 서버에서 동적으로 생성한 페이지를 한꺼번에 전송하기 때문에,
+      // 본문의 해시를 그 고유성을 판단하는 값으로서 제공할 수 있다.
+      // 참고: https://developer.mozilla.org/ko/docs/Web/HTTP/Headers/ETag
+      const etag = createEtag(body, length);
+      if (etag === req.headers['if-none-match']) {
+        res.writeHead(304);
         res.end();
+        return;
       } else {
-        res.end(body);
+        res.setHeader('Etag', etag);
       }
-      return;
     }
 
-    res.setHeader('Cache-Control', 'no-cache');
+    res.writeHead(200, {
+      'Content-Length': length,
+      'Content-Type': 'text/html; charset=utf-8',
+    });
 
-    // 가능하면 사용자의 브라우저 캐시를 사용하게 한다.
-    // 서버에서 동적으로 생성한 페이지를 한꺼번에 전송하기 때문에,
-    // 본문의 해시를 그 고유성을 판단하는 값으로서 제공할 수 있다.
-    // 참고: https://developer.mozilla.org/ko/docs/Web/HTTP/Headers/ETag
-    const etag = createEtag(body, length);
-    if (etag === req.headers['if-none-match']) {
-      res.writeHead(304);
+    // 요청 메소드가 HEAD인 경우 응답에 본문을 포함해서는 안 된다.
+    // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/HEAD
+    if (req.method === 'HEAD') {
       res.end();
     } else {
-      res.writeHead(200, {
-        ...headers,
-        'Etag': etag,
-      });
-
-      // 요청 메소드가 HEAD인 경우 응답에 본문을 포함해서는 안 된다.
-      // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/HEAD
-      if (req.method === 'HEAD') {
-        res.end();
-      } else {
-        res.end(body);
-      }
+      res.end(body);
     }
   });
 }
