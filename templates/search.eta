@@ -1,1 +1,28 @@
 <% layout('/default'); %>
+<% it.title = `우편물 조회${it.isAuthorized ? ' (사업자용)' : ''}`; %>
+    <nav>
+<% if (it.isAuthorized) { %>
+      <p><a href="/">비사업자</a></p>
+<% } else { %>
+      <p><a href="/biz/">사업자</a></p>
+<% } %>
+    </nav>
+    <form id="search" action="<%= it.isAuthorized ? '/biz/search' : '/search' %>" method="get">
+<% if (it.isAuthorized) { %>
+      <h1><a href="/biz/"><%= it.title %></a></h1>
+<% } else { %>
+      <h1><a href="/"><%= it.title %></a></h1>
+<% } %>
+      <p>
+        <label>운송장 번호:<br>
+        <input type="search" name="id" value="<%= it.id || '' %>" required=""></label>
+        <button type="submit">조회</button>
+      </p>
+    </form>
+<% if (it.data) { %>
+    <ul>
+<% for (const key in it.data) { %>
+      <li><%= key %>: <%= it.data[key] %></li>
+<% } %>
+    </ul>
+<% } %>

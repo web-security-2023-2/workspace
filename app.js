@@ -1,27 +1,28 @@
+import { createHash } from 'node:crypto';
 import { createReadStream, readFile, stat } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Eta } from 'eta';
 
-const DB_FILE = join(process.cwd(), 'database.json');
-const STATIC_DIR = join(process.cwd(), 'static');
-const STATUS_DIR = join(process.cwd(), 'status');
-
-// 본래는 헤더 설정파일을 따로 두고 파싱해서 URL별, 확장자별로 설정하거나,
-// 최소한 파일 확장자별로 하드코딩해서라도 캐싱 차이를 두는 게 맞지만,
-// 여기서 웹앱의 완성도는 안중요하므로 무조건 사용 전에 캐시 검증하게만 둔다.
-const DEFAULT_HEADERS = {
-  'Cache-Control': 'no-cache',
-};
-
 const port = parseInt(process.argv[2]);
-const origin = `http://localhost:${port}`;
 if (isNaN(port)) {
   console.error('Invalid port number.');
   process.exit(1);
 }
 
-const server = createServer((req, res) => {
+const origin = `http://localhost:${port}`;
+const root = fileURLToPath(new URL('.', import.meta.url));
+const dbFile = join(root, 'database.json');
+const staticDir = join(root, 'static');
+const statusDir = join(root, 'status');
+const templateDir = join(root, 'templates');
+const eta = new Eta({ views: templateDir });
+const cacheHeader = {
+  'Cache-Control': 'no-cache',
+};
+
+createServer((req, res) => {
   let body = [];
   req.on('error', (err) => {
     res.end("error while reading body: " + err)
@@ -41,80 +42,121 @@ const server = createServer((req, res) => {
   });
   return;
 
-  const { url } = req;
-  const { pathname: path, searchParams } = new URL(url, origin);
-  switch (path) {
-  case '/biz/search':
-    search(req, res, searchParams, true);
+  const { pathname, searchParams } = new URL(req.url, origin);
+  switch (pathname) {
   case '/search':
-    search(req, res, searchParams);
+  case '/biz/search':
+    search(req, res, pathname, searchParams);
     break;
   default:
-    serveStatic(req, res, path);
+    serveStatic(req, res, pathname);
     break;
   }
-});
-
-server.listen(port, () => {
+}).listen(port, () => {
   console.log(`Serving on ${origin}...`);
 });
 
-function search(req, res, searchParams, isAuthorized) {
-  const id = searchParams.get('id');
+function search(req, res, path, params) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    handleError(req, res, 405);
+    return;
+  }
+  
+  const id = params.get('id');
   if (!id) {
-    handleErrorStatus(req, res, 400);
+    handleError(req, res, 400, 'search-400.html');
     return;
   }
 
-  readFile(DB_FILE, 'utf8', (err, db) => {
+  readFile(dbFile, 'utf8', (err, db) => {
+    if (err) {
+      handleError(req, res, 500, 'search-500.html', err);
+      return;
+    }
+    
+    let data;
     try {
-      if (err) throw new Error(err);
-
-      const data = JSON.parse(db)[id];
-      if (!data) {
-        handleErrorStatus(req, res, 404);
-      }
-
-      // TODO: Render template part
-      res.writeHead(200);
-      res.end();
+      data = JSON.parse(db)[id];
     } catch (err) {
-      handleErrorStatus(req, res, 500);
+      handleError(req, res, 500, 'search-500.html', err);
+      return;
+    }
+    if (!data) {
+      handleError(req, res, 404, 'search-404.html');
+      return;
+    }
+
+    const isAuthorized = path.startsWith('/biz/');
+    let body;
+    try {
+      body = eta.render('search', { id, data, isAuthorized });
+    } catch (err) {
+      handleError(req, res, 500, 'search-500.html', err);
+      return;
+    }
+
+    const length = Buffer.byteLength(body);
+    const headers = {
+      'Content-Length': length,
+      'Content-Type': 'text/html; charset=utf-8',
+    };
+
+    if (isAuthorized) {
+      res.writeHead(200, {
+        'Cache-Control': 'no-store',
+        ...headers,
+      });
+      res.end(body);
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Use cache if the etag matched.
+    const etag = createEtag(body, length);
+    if (etag === req.headers['if-none-match']) {
+      res.writeHead(304);
+      res.end();
+    } else {
+      res.writeHead(200, {
+        ...headers,
+        'Etag': etag,
+      });
+      res.end(body);
     }
   });
 }
 
 function serveStatic(req, res, path) {
-  switch (req.method) {
-  case 'GET':
-  case 'HEAD':
-    const file = join(
-      STATIC_DIR,
-      path.endsWith('/') ?
-      decodeURIComponent(path) + 'index.html' :
-      decodeURIComponent(path)
-    );
-    stat(file, (err, stats) => {
-      if (err && err.code === 'ENOENT') {
-        handleErrorStatus(req, res, 404);
-      } else if (err) {
-        handleFileError(res, err);
-      } else if (stats.isDirectory()) {
-        handleDirectory(req, res, path, file);
-      } else {
-        handleFile(req, res, 200, stats, file);
-      }
-    });
-    break;
-  default:
-    handleErrorStatus(req, res, 405);
-    break;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    handleError(req, res, 405);
+    return;
   }
+
+  const file = join(
+    staticDir,
+    path.endsWith('/') ?
+    decodeURIComponent(path) + 'index.html' :
+    decodeURIComponent(path)
+  );
+  stat(file, (err, stats) => {
+    if (err && err.code === 'ENOENT') {
+      handleError(req, res, 404);
+    } else if (err) {
+      handleError(req, res, 500, undefined, err);
+    } else if (stats.isDirectory()) {
+      handleDirectory(req, res, path, file);
+    } else {
+      handleFile(req, res, 200, stats, file);
+    }
+  });
 }
 
-function handleErrorStatus(req, res, status) {
+function handleError(req, res, status, path, err) {
+  if (err) console.error(err);
+  
   // If the fallback page exists, return it.
-  const file = join(STATUS_DIR, `${status}.html`);
+  const file = join(statusDir, path || `${status}.html`);
   stat(file, (err, stats) => {
     if (err) {
       res.writeHead(status);
@@ -125,18 +167,13 @@ function handleErrorStatus(req, res, status) {
   });
 }
 
-function handleFileError(res, err) {
-  console.error(err);
-  handleErrorStatus(req, res, 500);
-}
-
 function handleDirectory(req, res, path, file) {
   file = join(file, 'index.html');
   stat(file, (err) => {
     if (err && err.code === 'ENOENT') {
-      handleErrorStatus(req, res, 404);
+      handleError(req, res, 404);
     } else if (err) {
-      handleFileError(res, err);
+      handleError(req, res, 500, undefined, err);
     } else {
       res.writeHead(301, { 'Location': path + '/' });
       res.end();
@@ -149,13 +186,13 @@ function handleFile(req, res, status, stats, file) {
   const modified = stats.mtime.toUTCString();
   const since = req.headers['if-modified-since'];
   if (since && (new Date(modified) <= new Date(since))) {
-    res.writeHead(304, DEFAULT_HEADERS);
+    res.writeHead(304, cacheHeader);
     res.end();
     return;
   }
 
   res.writeHead(status, {
-    ...DEFAULT_HEADERS,
+    ...cacheHeader,
     'Content-Length': stats.size,
     'Content-Type': guessType(file),
     'Last-Modified': modified,
@@ -170,10 +207,13 @@ function handleFile(req, res, status, stats, file) {
   }
 }
 
+function createEtag(body, length) {
+  return `"${length.toString(36)} ${createHash('md5').update(body).digest('base64url')}"`;
+}
+
 function guessType(file) {
   switch(extname(file)) {
   case '.html':
-  case '.htm':
     return 'text/html; charset=utf-8';
   case '.css':
     return 'text/css; charset=utf-8';
@@ -182,11 +222,9 @@ function guessType(file) {
   case '.json':
     return 'application/json';
   case '.ico':
-    return 'image/x-icon';
   case '.png':
     return 'image/png';
   case '.jpg':
-  case '.jpeg':
     return 'image/jpeg';
   case '.svg':
     return 'image/svg+xml';
