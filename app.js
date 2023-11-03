@@ -24,6 +24,9 @@ const cacheHeader = {
 };
 
 createServer((req, res) => {
+  /**************************
+   * TEST SERVER CODE START *
+   **************************/
   let body = [];
   req.on('error', (err) => {
     res.end("error while reading body: " + err)
@@ -42,6 +45,9 @@ createServer((req, res) => {
     }, undefined, 2) + "\n");
   });
   return;
+  /************************
+   * TEST SERVER CODE END *
+   ************************/
 
   // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
   const { pathname, searchParams } = new URL(req.url, origin);
@@ -71,7 +77,7 @@ function handleSearch(req, res, path, params) {
   // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
   const id = params.get('id');
   if (!id) {
-    handleError(req, res, 400, 'search-400.html');
+    handleError(req, res, 400);
     return;
   }
 
@@ -80,24 +86,22 @@ function handleSearch(req, res, path, params) {
     // (서버에 문제가 생겼다고 사용자에게 고지한다.)
     // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
     if (err) {
-      handleError(req, res, 500, 'search-500.html', err);
+      handleError(req, res, 500, err);
       return;
     }
     let data;
     try {
       data = JSON.parse(db)[id];
     } catch (err) {
-      handleError(req, res, 500, 'search-500.html', err);
+      handleError(req, res, 500, err);
       return;
     }
 
     // 데이터가 없으면 (이런 운송장 번호가 데이터베이스에 존재하지 않으면)
-    // 404 응답 (아무것도 없다고 사용자에게 고지한다.)
+    // 오류 페이지를 동적으로 생성
+    // (사용자가 틀린 입력을 고쳐야 하기 때문에 동적 생성이 요구됨)
     // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
-    if (!data) {
-      handleError(req, res, 404, 'search-404.html');
-      return;
-    }
+    const statusCode = data ? 200 : 404;
 
     // **중요**
     // '/biz/' 디렉토리로 들어온 요청은 프록시가 이미 권한을 검증했다고 가정,
@@ -107,12 +111,12 @@ function handleSearch(req, res, path, params) {
     let body;
     try {
       // 동적으로 페이지 생성
-      body = eta.render('search', { id, data, isAuthorized });
+      body = eta.render('search', { id, data, isAuthorized, statusCode });
     } catch (err) {
       // 템플릿 엔진에서 오류 발생 시 500 응답
       // (서버에 문제가 생겼다고 사용자에게 고지한다.)
       // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
-      handleError(req, res, 500, 'search-500.html', err);
+      handleError(req, res, 500, err);
       return;
     }
 
@@ -120,10 +124,16 @@ function handleSearch(req, res, path, params) {
 
     // 설계상 인증된 (것으로 간주된) 경우, 본문에는 개인정보가 포함되어 있다.
     // 이런 경우 보안 (모범) 관행은 브라우저의 캐시를 완전히 금지하도록 한다.
-    res.setHeader('Cache-Control', isAuthorized ? 'no-store' : 'no-cache');
+    // 404 응답의 경우에도, 'no-cache'(캐시 사용 전에 서버로부터 검증할 것)를
+    // 설정해봤자 404 응답은 서버로부터 검증되지 않으므로
+    // 아예 저장하지 않게 한다.
+    res.setHeader(
+      'Cache-Control',
+      (statusCode !== 200 || isAuthorized) ? 'no-store' : 'no-cache'
+    );
 
     // 인증되었을 경우, 어차피 캐시를 금하므로 Etag 생성/검증/세팅 생략.
-    if (!isAuthorized) {
+    if (statusCode === 200 && !isAuthorized) {
       // 가능하면 사용자의 브라우저 캐시를 사용하게 한다.
       // 서버에서 동적으로 생성한 페이지를 한꺼번에 전송하기 때문에,
       // 본문의 해시를 그 고유성을 판단하는 값으로서 제공할 수 있다.
@@ -138,7 +148,7 @@ function handleSearch(req, res, path, params) {
       }
     }
 
-    res.writeHead(200, {
+    res.writeHead(statusCode, {
       'Content-Length': length,
       'Content-Type': 'text/html; charset=utf-8',
     });
@@ -170,16 +180,17 @@ function handleStatic(req, res, path) {
     decodeURIComponent(path)
   );
 
+  // OS 파일 시스템으로부터 파일 정보 읽기
   stat(file, (err, stats) => {
     if (err && err.code === 'ENOENT') {
       // 파일이 없으면 404 응답. (아무것도 없다고 사용자에게 고지한다.)
       // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
       handleError(req, res, 404);
     } else if (err) {
-      // 다른 오류는 서버에 문제가 생긴 것으로 간주, 505 응답.
+      // 다른 오류는 서버에 문제가 생긴 것으로 간주, 500 응답.
       // (서버에 문제가 생겼다고 사용자에게 고지한다.)
       // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
-      handleError(req, res, 500, undefined, err);
+      handleError(req, res, 500, err);
     } else if (stats.isDirectory()) {
       // 파일이 존재하더라도 디렉토리일 수 있다.
       // 예: '/biz/' 디렉토리가 존재할 때 '/biz'('/biz/'가 아닌)를 요청한다.
@@ -190,12 +201,14 @@ function handleStatic(req, res, path) {
   });
 }
 
-function handleError(req, res, status, path, err) {
+function handleError(req, res, status, err) {
   if (err) console.error(err);
 
   // 미리 만들어진 오류 페이지가 존재한다면 그것을 보여준다.
   // 없으면 빈 본문으로 응답.
-  const file = join(statusDir, (path || `${status}.html`));
+  const file = join(statusDir, `${status}.html`);
+
+  // OS 파일 시스템으로부터 파일 정보 읽기
   stat(file, (err, stats) => {
     if (err) {
       res.writeHead(status);
@@ -213,11 +226,13 @@ function handleDirectory(req, res, path, file) {
   // (디렉토리 요청 시의 동작에는 표준이 없으며 서버마다 다르다.
   // 이 동작의 경우 Canonical Link의 일관성을 우선시했다.)
   file = join(file, 'index.html');
+
+  // OS 파일 시스템으로부터 파일 정보 읽기
   stat(file, (err) => {
     if (err && err.code === 'ENOENT') {
       handleError(req, res, 404);
     } else if (err) {
-      handleError(req, res, 500, undefined, err);
+      handleError(req, res, 500, err);
     } else {
       res.writeHead(301, { 'Location': path + '/' });
       res.end();

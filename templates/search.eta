@@ -1,5 +1,5 @@
-<% layout('/default'); %>
-<% it.title = `우편물 조회${it.isAuthorized ? ' (사업자용)' : ''}`; %>
+<% layout('/default');
+   it.title = `우편물 조회${it.isAuthorized ? ' (사업자용)' : ''}`; %>
     <nav>
 <% if (it.isAuthorized) { %>
       <p><a href="/">비사업자</a></p>
@@ -7,7 +7,7 @@
       <p><a href="/biz/">사업자</a></p>
 <% } %>
     </nav>
-    <form id="search" action="<%= it.isAuthorized ? '/biz/search' : '/search' %>" method="get">
+    <form id="search" action="<%= it.isAuthorized ? '/biz' : '' %>/search" method="get">
 <% if (it.isAuthorized) { %>
       <h1><a href="/biz/"><%= it.title %></a></h1>
 <% } else { %>
@@ -19,10 +19,18 @@
         <button type="submit">조회</button>
       </p>
     </form>
-<% if (it.data) { %>
+<% if (it.statusCode === 404) { %>
+    <p>검색하신 운송장 번호의 우편물이 없습니다. 번호를 정확히 입력했는지 확인해 주세요.</p>
+<% } else if (it.data && it.isAuthorized) { %>
     <ul>
-<% for (const key in it.data) { %>
+<%   for (const key in it.data) { %>
       <li><%= key %>: <%= it.data[key] %></li>
-<% } %>
+<%   } %>
+    </ul>
+<% } el.se if (it.data) { %>
+    <ul>
+      <li>state: <%= it.data.state %></li>
+      <li>location: <%= it.data.location %></li>
+      <li>parcel: <%= it.data.parcel.slice(0, 5) + '...' %></li>
     </ul>
 <% } %>
