@@ -7,7 +7,7 @@
       <p><a href="/biz/">사업자</a></p>
 <% } %>
     </nav>
-    <form id="search" action="<%= it.isAuthorized ? '/biz' : '' %>/search" method="get">
+    <form id="search" action="<%= it.isAuthorized ? '/biz' : '' %>/search" method="post">
 <% if (it.isAuthorized) { %>
       <h1><a href="/biz/"><%= it.title %></a></h1>
 <% } else { %>
