@@ -3,6 +3,8 @@ import { createReadStream, readFile, stat } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'node:querystring';
+
 import { Eta } from 'eta';
 
 // 실행 시 첫 번째 인수로 포트 번호를 받는다.
@@ -33,43 +35,46 @@ const statusDir = join(root, 'status');
 const eta = new Eta({ views: join(root, 'templates') });
 
 createServer((req, res) => {
+  let body = [];
+  req.on('data', (chunk) => {
+    body.push(chunk);
+  });
   req.on('end', () => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.url} ${JSON.stringify(req.headers)}`);
+
+    body = Buffer.concat(body).toString();
+
+    // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
+    const { pathname } = new URL(req.url, origin);
+
+    // 패스별 핸들러 할당
+    switch (pathname) {
+    case '/search':
+    case '/biz/search':
+      handleSearch(req, res, pathname, body);
+      break;
+    case '/favicon.ico':
+      handleFavicon(req, res, pathname);
+      break;
+    default:
+      handleStatic(req, res, pathname);
+      break;
+    }
   });
 
-  // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
-  const { pathname, searchParams } = new URL(req.url, origin);
-
-  // 패스별 핸들러 할당
-  switch (pathname) {
-  case '/search':
-  case '/biz/search':
-    handleSearch(req, res, pathname, searchParams);
-    break;
-  case '/favicon.ico':
-    handleFavicon(req, res, pathname);
-    break;
-  default:
-    handleStatic(req, res, pathname);
-    break;
-  }
 }).listen(port, () => {
   console.log(`Serving on ${origin}...`);
 });
 
-function handleSearch(req, res, path, params) {
-  // // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
-  // // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
-  // if (req.method !== 'GET' && req.method !== 'HEAD') {
-  //   handleError(req, res, 405);
-  //   return;
-  // }
-
+function handleSearch(req, res, path, body) {
   // 'id', 즉, 운송장 번호가 요청 값에 존재하지 않으면 400 응답.
   // (요청 형식이 올바르지 않음을 고지한다.)
   // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
-  const id = params.get('id');
-  if (!id) {
+  let id;
+  try {
+    id = parse(body).id;
+    if (!id) throw new Error();
+  } catch (err) {
     handleError(req, res, 400);
     return;
   }
