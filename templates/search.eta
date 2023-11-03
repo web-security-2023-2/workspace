@@ -27,7 +27,7 @@
       <li><%= key %>: <%= it.data[key] %></li>
 <%   } %>
     </ul>
-<% } el.se if (it.data) { %>
+<% } else if (it.data) { %>
     <ul>
       <li>state: <%= it.data.state %></li>
       <li>location: <%= it.data.location %></li>
