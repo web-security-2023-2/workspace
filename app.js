@@ -38,11 +38,18 @@ createServer((req, res) => {
   let body = [];
   req.on('data', (chunk) => {
     body.push(chunk);
-  });
-  req.on('end', () => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url} ${JSON.stringify(req.headers)}`);
-
+  }).on('end', () => {
+    // 본문 청크 결합
     body = Buffer.concat(body).toString();
+
+    // 로깅
+    console.log(JSON.stringify({
+      time: new Date().toISOString(),
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: body,
+    }));
 
     // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
     const { pathname } = new URL(req.url, origin);
@@ -61,7 +68,6 @@ createServer((req, res) => {
       break;
     }
   });
-
 }).listen(port, () => {
   console.log(`Serving on ${origin}...`);
 });
