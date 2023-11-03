@@ -9,32 +9,10 @@
 테스트 서버 실행:
 
 ``` console
-node app.js 3000
+node test.js 3000
 ```
 
 여기서 3000은 포트번호 예시입니다. 첫 번째 인수를 포트번호로 받습니다.
-
-코드가 170줄 정도 됩니다만 대부분은 개발 중 코드를 주석처리한 거고 실제로 동작하는 서버 코드는 이부분입니다:
-
-``` javascript
-  let body = [];
-  req.on('error', (err) => {
-    res.end("error while reading body: " + err)
-  }).on('data', (chunk) => {
-    body.push(chunk);
-  }).on('end', () => {
-    body = Buffer.concat(body).toString();
-    res.on('error', (err) => {
-      res.end("error while sending response: " + err)
-    });
-   res.end(JSON.stringify({
-      "URL": req.url,
-      "Headers": req.headers,
-      "Length": body.length,
-      "Body": body,
-    }, undefined, 2) + "\n");
-  });
-```
 
 그냥 요청 URL, Header, Length, Body를 그대로 되돌려주기만 합니다.
 

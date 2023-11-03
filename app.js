@@ -33,31 +33,6 @@ const statusDir = join(root, 'status');
 const eta = new Eta({ views: join(root, 'templates') });
 
 createServer((req, res) => {
-  /**************************
-   * TEST SERVER CODE START *
-   **************************/
-  let body = [];
-  req.on('error', (err) => {
-    res.end("error while reading body: " + err)
-  }).on('data', (chunk) => {
-    body.push(chunk);
-  }).on('end', () => {
-    body = Buffer.concat(body).toString();
-    res.on('error', (err) => {
-      res.end("error while sending response: " + err)
-    });
-   res.end(JSON.stringify({
-      "URL": req.url,
-      "Headers": req.headers,
-      "Length": body.length,
-      "Body": body,
-    }, undefined, 2) + "\n");
-  });
-  return;
-  /************************
-   * TEST SERVER CODE END *
-   ************************/
-
   // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
   const { pathname, searchParams } = new URL(req.url, origin);
 
