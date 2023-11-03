@@ -70,6 +70,7 @@ function handleSearch(req, res, path, params) {
     return;
   }
 
+  // 데이터베이스 읽기
   readFile(dbFile, 'utf8', (err, db) => {
     // 데이터베이스를 읽는 과정에서 문제가 생기면 500 응답
     // (서버에 문제가 생겼다고 사용자에게 고지한다.)
@@ -86,8 +87,8 @@ function handleSearch(req, res, path, params) {
       return;
     }
 
-    // 데이터가 없으면 (이런 운송장 번호가 데이터베이스에 존재하지 않으면)
-    // 오류 페이지를 동적으로 생성
+    // 요청된 운송장 번호가 데이터베이스에 존재하지 않으면
+    // 오류 페이지의 응답 본문을 동적으로 생성
     // (사용자가 틀린 입력을 고쳐야 하기 때문에 동적 생성이 요구됨)
     // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
     const statusCode = data ? 200 : 404;
@@ -97,9 +98,10 @@ function handleSearch(req, res, path, params) {
     // 어떤 검증 절차도 없이 무조건적으로 인증된 것으로 간주한다.
     // (보안 결함)
     const isAuthorized = path.startsWith('/biz/');
+
+    // 동적으로 응답 본문 생성
     let body;
     try {
-      // 동적으로 페이지 생성
       body = eta.render('search', { id, data, isAuthorized, statusCode });
     } catch (err) {
       // 템플릿 엔진에서 오류 발생 시 500 응답
@@ -109,20 +111,20 @@ function handleSearch(req, res, path, params) {
       return;
     }
 
-    const length = Buffer.byteLength(body);
-
     // 설계상 인증된 (것으로 간주된) 경우, 본문에는 개인정보가 포함되어 있다.
     // 이런 경우 보안 (모범) 관행은 브라우저의 캐시를 완전히 금지하도록 한다.
     // 404 응답의 경우에도, 'no-cache'(캐시 사용 전에 서버로부터 검증할 것)를
     // 설정해봤자 404 응답은 서버로부터 검증되지 않으므로
     // 아예 저장하지 않게 한다.
-    res.setHeader(
-      'Cache-Control',
-      (statusCode !== 200 || isAuthorized) ? 'no-store' : 'no-cache'
-    );
+    const allowsCache = (statusCode === 200 && !isAuthorized);
+    const length = Buffer.byteLength(body);
 
-    // 인증되었을 경우, 어차피 캐시를 금하므로 Etag 생성/검증/세팅 생략.
-    if (statusCode === 200 && !isAuthorized) {
+    // 캐시를 불허하는 경우 Etag 생성/검증/세팅 생략.
+    // 304 응답 시 캐시 설정이 헤더에 포함되어야 하므로,
+    // 캐시 검증 전에 설정해야 한다.
+    // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304
+    res.setHeader('Cache-Control', allowsCache ? 'no-cache' : 'no-store');
+    if (allowsCache) {
       // 가능하면 사용자의 브라우저 캐시를 사용하게 한다.
       // 서버에서 동적으로 생성한 페이지를 한꺼번에 전송하기 때문에,
       // 본문의 해시를 그 고유성을 판단하는 값으로서 제공할 수 있다.
