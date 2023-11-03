@@ -33,6 +33,10 @@ const statusDir = join(root, 'status');
 const eta = new Eta({ views: join(root, 'templates') });
 
 createServer((req, res) => {
+  req.on('end', () => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url} ${JSON.stringify(req.headers)}`);
+  });
+
   // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
   const { pathname, searchParams } = new URL(req.url, origin);
 
@@ -54,12 +58,12 @@ createServer((req, res) => {
 });
 
 function handleSearch(req, res, path, params) {
-  // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
-  // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    handleError(req, res, 405);
-    return;
-  }
+  // // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
+  // // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
+  // if (req.method !== 'GET' && req.method !== 'HEAD') {
+  //   handleError(req, res, 405);
+  //   return;
+  // }
 
   // 'id', 즉, 운송장 번호가 요청 값에 존재하지 않으면 400 응답.
   // (요청 형식이 올바르지 않음을 고지한다.)
@@ -164,12 +168,12 @@ function handleFavicon(req, res, path) {
 }
 
 function handleStatic(req, res, path, headers) {
-  // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
-  // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    handleError(req, res, 405);
-    return;
-  }
+  // // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
+  // // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
+  // if (req.method !== 'GET' && req.method !== 'HEAD') {
+  //   handleError(req, res, 405);
+  //   return;
+  // }
 
   // 웹 서버 관행 - 디렉토리가 요청되었을 시 그 디렉토리의 'index.html'을 응답.
   // 표준은 아님. 어지간해선 'index'가 기본값이나 그 값이 다른 서버도 존재.
