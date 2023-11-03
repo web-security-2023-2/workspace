@@ -43,11 +43,8 @@ createServer((req, res) => {
     handleSearch(req, res, pathname, searchParams);
     break;
   case '/favicon.ico':
-    // 서버 부하를 줄이기 위해, 내용이 변경되지 않을 파비콘은 캐시를 지시,
-    // 또한 디스크/네트워크 용량 절약을 위해 PNG 파일로 설정한다.
-    res.setHeader('Cache-Control', 'max-age=604800, immutable');
-    res.setHeader('Content-Type', MIME_TYPE.PNG);
-    // '/favicon.ico'는 정적 파일이므로 break문 없이 그대로 아래로 넘긴다.
+    handleFavicon(req, res, pathname);
+    break;
   default:
     handleStatic(req, res, pathname);
     break;
@@ -155,7 +152,16 @@ function handleSearch(req, res, path, params) {
   });
 }
 
-function handleStatic(req, res, path) {
+function handleFavicon(req, res, path) {
+  // 서버 부하를 줄이기 위해, 내용이 변경되지 않을 파비콘은 캐시를 지시,
+  // 또한 디스크/네트워크 용량 절약을 위해 PNG 파일로 설정한다.
+  handleStatic(req, res, path, {
+    'Cache-Control': 'max-age=604800, immutable',
+    'Content-Type': MIME_TYPE.PNG,
+  });
+}
+
+function handleStatic(req, res, path, headers) {
   // GET, HEAD가 아닌 HTTP Method의 요청은 허용하지 않는다.
   // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/405
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -188,7 +194,7 @@ function handleStatic(req, res, path) {
       // 예: '/biz/' 디렉토리가 존재할 때 '/biz'('/biz/'가 아닌)를 요청한다.
       handleDirectory(req, res, path, file);
     } else {
-      handleFile(req, res, 200, stats, file);
+      handleFile(req, res, 200, stats, file, headers);
     }
   });
 }
@@ -232,7 +238,14 @@ function handleDirectory(req, res, path, file) {
   });
 }
 
-function handleFile(req, res, status, stats, file) {
+function handleFile(req, res, status, stats, file, headers) {
+  // 커스텀 헤더 설정
+  if (headers) {
+    for (const header in headers) {
+      res.setHeader(header, headers[header]);
+    }
+  }
+
   // 기본적으로 캐시를 허용하되 사용 전에 서버에 무조건 검증하도록 한다.
   // 304 응답 시 캐시 설정이 헤더에 포함되어야 하므로,
   // 캐시 검증 전에 설정해야 한다.
