@@ -1,0 +1,35 @@
+{
+  "1111-1111-1111": {
+    "state": "배송 완료",
+    "location": "경기도 수원시",
+    "parcel": "에이블삭스 체크 패턴 유니크 패션 여성양말 5종세트",
+    "senderName": "이준영",
+    "senderAddress": "경기도 안양시 동안구 시민대로 235",
+    "senderTel": "010-0000-0000",
+    "receiverName": "홍길동",
+    "receiverAddress": "경기도 수원시 팔달구 효원로 241",
+    "receiverTel": "010-1111-1111"
+  },
+  "2222-2222-2222": {
+    "state": "상하차 진행중",
+    "location": "경기도 이천시",
+    "parcel": "미다몰 한입에 쏙 오란다 750g 옛날 과자 대용량",
+    "senderName": "김영희",
+    "senderAddress": "서울특별시 중구 세종대로 110",
+    "senderTel": "010-2222-2222",
+    "receiverName": "이철수",
+    "receiverAddress": "부산광역시 연제구 중앙대로 1001",
+    "receiverTel": "010-3333-3333"
+  },
+  "3333-3333-3333": {
+    "state": "접수 완료",
+    "location": "경기도 김포시",
+    "parcel": "오바쿠 여성용 마크 쿼츠 가죽시계 32mm V197LXCWRB",
+    "senderName": "박유미",
+    "senderAddress": "경기도 김포시 사우중로 1",
+    "senderTel": "010-4444-4444",
+    "receiverName": "한진호",
+    "receiverAddress": "광주광역시 서구 내방로 111",
+    "receiverTel": "010-5555-5555"
+  }
+}
