@@ -239,18 +239,14 @@ function handleDirectory(req, res, path, file) {
 }
 
 function handleFile(req, res, status, stats, file, headers) {
-  // 커스텀 헤더 설정
-  if (headers) {
-    for (const header in headers) {
-      res.setHeader(header, headers[header]);
-    }
-  }
-
   // 기본적으로 캐시를 허용하되 사용 전에 서버에 무조건 검증하도록 한다.
   // 304 응답 시 캐시 설정이 헤더에 포함되어야 하므로,
   // 캐시 검증 전에 설정해야 한다.
   // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304
-  if (!res.hasHeader('Cache-Control')) {
+  if (headers && headers['Cache-Control']) {
+    res.setHeader('Cache-Control', headers['Cache-Control']);
+    delete headers['Cache-Control'];
+  } else {
     res.setHeader('Cache-Control', 'no-cache');
   }
 
@@ -266,6 +262,12 @@ function handleFile(req, res, status, stats, file, headers) {
     return;
   }
 
+  // 커스텀 헤더 설정
+  if (headers) {
+    for (const header in headers) {
+      res.setHeader(header, headers[header]);
+    }
+  }
   // 나머지 HTTP 헤더 설정
   if (!res.hasHeader('Content-Type')) {
     res.setHeader('Content-Type', guessType(extname(file)));
