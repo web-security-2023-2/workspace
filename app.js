@@ -13,15 +13,24 @@ if (isNaN(port)) {
   process.exit(1);
 }
 
+const MIME_TYPE = {
+  HTML: 'text/html; charset=utf-8',
+  CSS: 'text/css; charset=utf-8',
+  JAVASCRIPT: 'text/javascript; charset=utf-8',
+  JSON: 'application/json',
+  ICO: 'image/x-icon',
+  PNG: 'image/png',
+  JPEG: 'image/jpeg',
+  SVG: 'image/svg+xml',
+  TEXT: 'text/plain; charset=utf-8',
+};
+
 const origin = `http://localhost:${port}`;
 const root = fileURLToPath(new URL('.', import.meta.url));
 const dbFile = join(root, 'database.json');
 const staticDir = join(root, 'static');
 const statusDir = join(root, 'status');
 const eta = new Eta({ views: join(root, 'templates') });
-const cacheHeader = {
-  'Cache-Control': 'no-cache',
-};
 
 createServer((req, res) => {
   /**************************
@@ -51,11 +60,19 @@ createServer((req, res) => {
 
   // URL 객체 참조: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
   const { pathname, searchParams } = new URL(req.url, origin);
+
+  // 패스별 핸들러 할당
   switch (pathname) {
   case '/search':
   case '/biz/search':
     handleSearch(req, res, pathname, searchParams);
     break;
+  case '/favicon.ico':
+    // 서버 부하를 줄이기 위해, 내용이 변경되지 않을 파비콘은 캐시를 지시,
+    // 또한 디스크/네트워크 용량 절약을 위해 PNG 파일로 설정한다.
+    res.setHeader('Cache-Control', 'max-age=604800, immutable');
+    res.setHeader('Content-Type', MIME_TYPE.PNG);
+    // '/favicon.ico'는 정적 파일이므로 break문 없이 그대로 아래로 넘긴다.
   default:
     handleStatic(req, res, pathname);
     break;
@@ -150,7 +167,7 @@ function handleSearch(req, res, path, params) {
 
     res.writeHead(statusCode, {
       'Content-Length': length,
-      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Type': MIME_TYPE.HTML,
     });
 
     // 요청 메소드가 HEAD인 경우 응답에 본문을 포함해서는 안 된다.
@@ -241,6 +258,14 @@ function handleDirectory(req, res, path, file) {
 }
 
 function handleFile(req, res, status, stats, file) {
+  // 기본적으로 캐시를 허용하되 사용 전에 서버에 무조건 검증하도록 한다.
+  // 304 응답 시 캐시 설정이 헤더에 포함되어야 하므로,
+  // 캐시 검증 전에 설정해야 한다.
+  // 참고: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/304
+  if (!res.hasHeader('Cache-Control')) {
+    res.setHeader('Cache-Control', 'no-cache');
+  }
+
   // 가능하면 사용자의 브라우저 캐시를 사용하게 한다.
   // 정적 파일은 스트림으로 전송되므로, 본문의 해시(etag)를 생성할 수 없다.
   // 따라서 OS가 제공하는 파일 메타데이터의 수정 시각을 대신 제공한다.
@@ -248,15 +273,17 @@ function handleFile(req, res, status, stats, file) {
   const modified = stats.mtime.toUTCString();
   const since = req.headers['if-modified-since'];
   if (since && (new Date(modified) <= new Date(since))) {
-    res.writeHead(304, cacheHeader);
+    res.writeHead(304);
     res.end();
     return;
   }
 
+  // 나머지 HTTP 헤더 설정
+  if (!res.hasHeader('Content-Type')) {
+    res.setHeader('Content-Type', guessType(extname(file)));
+  }
   res.writeHead(status, {
-    ...cacheHeader,
     'Content-Length': stats.size,
-    'Content-Type': guessType(file),
     'Last-Modified': modified,
   });
 
@@ -279,25 +306,26 @@ function createEtag(body, length) {
   return `"${size} ${hash}"`;
 }
 
-function guessType(file) {
-  switch(extname(file)) {
+function guessType(ext) {
+  switch(ext) {
   case '.html':
-    return 'text/html; charset=utf-8';
+    return MIME_TYPE.HTML;
   case '.css':
-    return 'text/css; charset=utf-8';
+    return MIME_TYPE.CSS;
   case '.js':
-    return 'application/javascript; charset=utf-8';
+    return MIME_TYPE.JAVASCRIPT;
   case '.json':
-    return 'application/json';
+    return MIME_TYPE.JSON;
   case '.ico':
+    return MIME_TYPE.ICO;
   case '.png':
-    return 'image/png';
+    return MIME_TYPE.PNG;
   case '.jpg':
-    return 'image/jpeg';
+    return MIME_TYPE.JPEG;
   case '.svg':
-    return 'image/svg+xml';
+    return MIME_TYPE.SVG;
   case '.txt':
-    return 'text/plain; charset=utf-8';
+    return MIME_TYPE.TEXT;
   default:
     return 'application/octet-stream';
   }
