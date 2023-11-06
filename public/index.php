@@ -1,5 +1,6 @@
 <?php
 include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'isAuthorized.php'));
+include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'layout.php'));
 ?>
 <!DOCTYPE html>
 <html lang="ko">
@@ -15,17 +16,7 @@ include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'isAuthorized.php'
     <header>
       <p><a href="/">홈</a></p>
       <nav>
-<?php
-    if ($isAuthorized) {
-?>
-        <p><a href="/logout.php">로그아웃</a></p>
-<?php
-    } else {
-?>
-        <p><a href="/login.php">로그인</a></p>
-<?php
-    }
-?>
+        <p><a href="<?= $authLink ?>"><?= $authLabel ?></a></p>
       </nav>
     </header>
     <form id="search" action="/search.php" method="get">

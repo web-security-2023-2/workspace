@@ -1,5 +1,6 @@
 <?php
 include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'isAuthorized.php'));
+include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'layout.php'));
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
     $db = json_decode(file_get_contents(join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'resources', 'shipments.json'))), true);
@@ -23,17 +24,7 @@ if (isset($_GET['id'])) {
     <header>
       <p><a href="/">홈</a></p>
       <nav>
-<?php
-if ($isAuthorized) {
-?>
-        <p><a href="/logout.php">로그아웃</a></p>
-<?php
-} else {
-?>
-        <p><a href="/login.php">로그인</a></p>
-<?php
-}
-?>
+        <p><a href="<?= $authLink ?>"><?= $authLabel ?></a></p>
       </nav>
     </header>
     <form id="search" action="/search.php" method="get">
@@ -51,20 +42,24 @@ if (is_null($id)) {
     <p>입력하신 운송장 번호의 우편물이 없습니다.</p>
 <?php
 } else {
+    $list = array();
+    $list['물품'] = $data['parcel'];
+    $list['상태'] = $data['state'];
+    $list['위치'] = $data['location'];
+    if ($isAuthorized) {
+        $list['발송인 이름']= $data['senderName'];
+        $list['발송인 주소']= $data['senderAddress'];
+        $list['발송인 번호']= $data['senderTel'];
+        $list['수취인 이름']= $data['receiverName'];
+        $list['수취인 주소']= $data['receiverAddress'];
+        $list['수취인 번호']= $data['receiverTel'];
+    }
 ?>
     <ul>
-      <li>물품: <?= $data['parcel'] ?></li>
-      <li>상태: <?= $data['state'] ?></li>
-      <li>위치: <?= $data['location'] ?></li>
 <?php
-    if ($isAuthorized) {
+     foreach($list as $key => $value) {
 ?>
-      <li>발송인 이름: <?= $data['senderName'] ?></li>
-      <li>발송인 주소: <?= $data['senderAddress'] ?></li>
-      <li>발송인 번호: <?= $data['senderTel'] ?></li>
-      <li>수취인 이름: <?= $data['receiverName'] ?></li>
-      <li>수취인 주소: <?= $data['receiverAddress'] ?></li>
-      <li>수취인 번호: <?= $data['receiverTel'] ?></li>
+      <li><?= $key ?>: <?= $value ?></li>
 <?php
     }
 ?>
