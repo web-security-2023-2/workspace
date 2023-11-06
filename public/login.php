@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <title>우편물 조회</title>
+  <title>로그인</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/default.css">
   <link rel="icon" href="/favicon.ico">

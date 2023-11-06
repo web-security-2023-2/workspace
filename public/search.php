@@ -57,7 +57,7 @@ if (is_null($id)) {
 ?>
     <ul>
 <?php
-     foreach($list as $key => $value) {
+    foreach($list as $key => $value) {
 ?>
       <li><?= $key ?>: <?= $value ?></li>
 <?php
