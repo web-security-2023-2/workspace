@@ -1,6 +1,0 @@
-{
-  "type": "module",
-  "dependencies": {
-    "eta": "^3.1.1"
-  }
-}

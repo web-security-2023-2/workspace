@@ -1,3 +1,5 @@
+<?php
+?>
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -9,14 +11,16 @@
 </head>
 <body>
   <div class="wrapper">
-    <nav>
-      <p><a href="/biz/">사업자</a></p>
-    </nav>
-    <form id="search" action="/search" method="post">
-      <h1><a href="/">우편물 조회</a></h1>
+    <header>
+      <p><a href="/">홈</a></p>
+    </header>
+    <form id="login" action="/login.php" method="post">
+      <h1>로그인</h1>
       <p>
-        <label>운송장 번호:<br>
-        <input type="search" name="id" value="" required=""></label>
+        <p><label>사용자명:<br>
+        <input type="text" name="username" required=""></label></p>
+        <p><label>암호:<br>
+        <input type="password" name="password" required=""></label></p>
         <button type="submit">조회</button>
       </p>
     </form>
