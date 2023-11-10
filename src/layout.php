@@ -1,8 +1,8 @@
 <?php
 if ($isAuthorized) {
-  $authLink = '/nginx/logout.php';
+  $authLink = '/apache/logout.php';
   $authLabel = '로그아웃';
 } else {
-  $authLink = '/nginx/login.php';
+  $authLink = '/apache/login.php';
   $authLabel = '로그인';
 }
