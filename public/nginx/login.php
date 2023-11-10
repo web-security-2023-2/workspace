@@ -1,22 +1,22 @@
 <?php
-include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'isAuthorized.php'));
+include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', '..', 'src', 'isAuthorized.php'));
 if ($isAuthorized) {
-  header('Location: /', true, 303);
+  header('Location: /nginx/', true, 303);
   exit;
 }
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (empty($_POST['username']) || empty($_POST['password'])) {
-        header('Location: /login.php?error=1', true, 303);
+        header('Location: /nginx/login.php?error=1', true, 303);
         exit;
     }
     $username = $_POST['username'];
     $password = $_POST['password'];
-    $db = json_decode(file_get_contents(join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'resources', 'users.json'))), true);
+    $db = json_decode(file_get_contents(join(DIRECTORY_SEPARATOR, array(__DIR__, '..', '..', 'resources', 'users.json'))), true);
     if (isset($db[$username]) && $password == $db[$username]) {
         $_SESSION['authorized'] = true;
-        header('Location: /', true, 303);
+        header('Location: /nginx/', true, 303);
     } else {
-        header('Location: /login.php?error=1', true, 303);
+        header('Location: /nginx/login.php?error=1', true, 303);
     }
 } else {
 ?>
@@ -26,8 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <meta charset="utf-8">
   <title>로그인</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/assets/default.css">
-  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/nginx/assets/default.css">
+  <link rel="icon" href="/nginx/favicon.ico">
 <?php
     if (isset($_GET['error'])) {
 ?>
@@ -41,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
   <div class="wrapper">
     <header>
-      <p><a href="/">홈</a></p>
+      <p><a href="/nginx/">홈</a></p>
     </header>
-    <form id="login" action="/login.php" method="post">
+    <form id="login" action="/nginx/login.php" method="post">
       <h1>로그인</h1>
       <p>
         <p><label>사용자명:<br>
