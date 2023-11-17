@@ -27,6 +27,14 @@ include join(DIRECTORY_SEPARATOR, array(__DIR__, '..', 'src', 'layout.php'));
         <button type="submit">조회</button>
       </p>
     </form>
+    <form id="post" action="/post.php" method="post">
+      <h1>POST FORM</h1>
+      <p>
+        <label>Text:<br>
+        <input type="test" name="test" value="" required=""></label>
+        <button type="submit">Submit</button>
+      </p>
+    </form>
   </div>
 </body>
 </html>
